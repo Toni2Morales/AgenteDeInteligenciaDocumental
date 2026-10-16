@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>{{ app_name }}</h1>
+        <p class="subtitle">Document Intelligence Assistant</p>
+    </header>
+
+    <main>
+        <section class="upload-section">
+            <h2>Upload PDF</h2>
+            <div class="upload-area">
+                <input type="file" id="pdf-upload" accept=".pdf" disabled>
+                <label for="pdf-upload" class="upload-label">
+                    <span class="upload-icon">📄</span>
+                    <span>Select a PDF file</span>
+                </label>
+                <p class="pending-note">Upload functionality: pending implementation</p>
+            </div>
+        </section>
+
+        <section class="qa-section">
+            <h2>Ask a question</h2>
+            <div class="question-area">
+                <textarea id="question-input" placeholder="Ask a question about the document..." rows="4" disabled></textarea>
+                <button id="ask-button" disabled>Ask</button>
+                <p class="pending-note">Question submission: pending implementation</p>
+            </div>
+
+            <div class="answer-area">
+                <h3>Answers</h3>
+                <div id="answers-container" class="answers-container">
+                    <p class="empty-state">No answers yet. Upload a PDF and ask a question.</p>
+                </div>
+                <p class="pending-note">Answer generation: pending implementation (no AI responses will be simulated)</p>
+            </div>
+        </section>
+
+        <section class="sample-section">
+            <h2>Try it out</h2>
+            <button id="sample-button" disabled>Try with sample document</button>
+            <p class="pending-note">Sample document loading: pending implementation</p>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 {{ app_name }}</p>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
