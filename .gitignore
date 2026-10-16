@@ -67,6 +67,7 @@ desktop.ini
 # Logs
 *.log
 
-# Markdown - ignore all except README
+# Markdown - ignore all except README and agent instructions
 *.md
 !README.md
+!AGENTS.md
