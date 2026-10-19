@@ -1,0 +1,2 @@
+# Store PDF files as binary so Git never rewrites their line endings.
+*.pdf binary

@@ -99,6 +99,29 @@ curl.exe -X POST "http://127.0.0.1:8000/api/documents/upload" -F "file=@C:\ruta\
 
 También puedes probarlo desde la documentación interactiva en http://127.0.0.1:8000/docs.
 
+## Demostración y evaluación
+
+El directorio [`demo/`](demo/) contiene un documento de ejemplo reproducible y un conjunto de
+preguntas de evaluación para comprobar más adelante la recuperación de información y las citas:
+
+- `demo/document.txt` — fuente de texto del documento (contenido original y propio sobre el Sistema
+  Solar, con datos públicos y estables).
+- `demo/document.pdf` — PDF de demostración (4 páginas), generado de forma determinista.
+- `demo/evaluation.json` — 8 preguntas con respuesta esperada, página y sección de origen.
+- `demo/README.md` — guía detallada en español.
+
+Regenerar el PDF a partir de la fuente:
+
+```powershell
+python scripts/generate_demo_pdf.py
+```
+
+Subir el documento de demostración al endpoint de ingesta:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/documents/upload" -F "file=@demo\document.pdf"
+```
+
 ## Desarrollo
 
 Ejecutar las pruebas:
@@ -130,11 +153,15 @@ La aplicación lee el puerto desde la variable de entorno `PORT` (a través de l
 - `src/app/schemas/` — modelos Pydantic que describen las estructuras de datos.
 - `src/app/config/` — configuración de la aplicación (`settings`).
 - `src/app/templates/` y `src/app/static/` — interfaz web (HTML, CSS y JavaScript).
+- `demo/` — documento de demostración y conjunto de preguntas de evaluación.
+- `scripts/` — utilidades de desarrollo (`generate_demo_pdf`).
 
 ## Notas y limitaciones
 
 - Actualmente solo está implementada la **ingesta y extracción de texto de PDFs**. La interfaz muestra
   las áreas de subida, pregunta/respuesta y documento de ejemplo como funciones **pendientes**.
+- El documento y las preguntas de `demo/` sirven para **preparar y evaluar** el futuro sistema RAG;
+  todavía no hay generación de respuestas.
 - Todavía **no** hay embeddings, base de datos, LangGraph ni integraciones con proveedores de LLM.
 - Los archivos subidos no se persisten; se procesan en memoria y se descartan.
 - Ningún contenido del documento se ejecuta: el texto se extrae con `pypdf` y no se interpreta.

@@ -1,0 +1,39 @@
+[[PAGE]]
+El Sistema Solar: guía breve
+
+Este documento forma parte de la demostración de DocuMind AI. Su contenido es original y recoge datos públicos y estables sobre el Sistema Solar, pensados para comprobar la recuperación de información y las citas.
+
+1. El Sol
+
+El Sol es la estrella central del Sistema Solar y concentra aproximadamente el 99,86 % de toda su masa. Su gravedad mantiene en órbita a los planetas, los asteroides, los cometas y el resto de cuerpos.
+
+La distancia media entre la Tierra y el Sol es de unos 150 millones de kilómetros. Esa distancia se denomina unidad astronómica (UA) y se usa como referencia para medir distancias dentro del Sistema Solar.
+
+[[PAGE]]
+2. Los planetas interiores
+
+Los cuatro planetas más cercanos al Sol son Mercurio, Venus, la Tierra y Marte. Se llaman planetas interiores o rocosos porque tienen una superficie sólida.
+
+Mercurio es el planeta más pequeño del Sistema Solar y el más cercano al Sol.
+
+Venus es el planeta más caluroso, con temperaturas que alcanzan los 465 °C. Su intenso efecto invernadero atrapa el calor en una atmósfera muy densa.
+
+La Tierra es el único planeta donde se conoce vida. Marte debe su color rojizo al óxido de hierro presente en su superficie.
+
+[[PAGE]]
+3. Los planetas exteriores
+
+Los planetas exteriores son Júpiter, Saturno, Urano y Neptuno. Son mucho más grandes que los interiores y están formados principalmente por gas y hielo.
+
+Júpiter es el planeta más grande del Sistema Solar y tiene la mayor masa. Saturno es conocido por sus llamativos anillos.
+
+Urano tiene el eje muy inclinado, unos 98 grados, por lo que gira de lado respecto al plano de su órbita. Neptuno es el planeta más lejano y presenta los vientos más rápidos del Sistema Solar.
+
+[[PAGE]]
+4. Otros cuerpos y datos generales
+
+Entre las órbitas de Marte y Júpiter se encuentra el cinturón de asteroides. Más allá de Neptuno está el cinturón de Kuiper, una región de cuerpos helados.
+
+Plutón, situado en el cinturón de Kuiper, fue reclasificado como planeta enano en 2006.
+
+Saturno tiene una luna llamada Titán, con una atmósfera densa. El Sistema Solar se formó hace aproximadamente 4.600 millones de años.
