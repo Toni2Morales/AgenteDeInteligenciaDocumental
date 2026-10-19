@@ -55,4 +55,4 @@ jobs:
         run: python scripts/migrate.py
 
       - name: Run tests
-        run: RUN_DB_TESTS=1 pytest -q
+        run: RUN_DB_TESTS=1 pytest -q -rs

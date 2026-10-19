@@ -44,8 +44,10 @@ def _sha256() -> str:
 def conn():
     try:
         connection = connect()
-    except Exception as exc:  # pragma: no cover - depends on local services
-        pytest.skip(f"Database not reachable: {exc}")
+    except Exception as exc:
+        # RUN_DB_TESTS=1 means the database was explicitly required, so an
+        # unreachable server is a real failure and must not be hidden as a skip.
+        pytest.fail(f"RUN_DB_TESTS=1 but the database is not reachable: {exc}")
     try:
         yield connection
     finally:

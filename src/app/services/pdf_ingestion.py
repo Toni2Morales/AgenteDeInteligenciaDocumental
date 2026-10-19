@@ -7,7 +7,6 @@ the provided bytes and never executes any content found inside the document.
 """
 
 from io import BytesIO
-from pathlib import Path
 
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
@@ -90,6 +89,19 @@ def _ensure_text(pages: list[PageText]) -> None:
         raise NoExtractableTextError("The PDF does not contain any extractable text.")
 
 
+def _sanitize_filename(filename: str) -> str:
+    """Reduce a client-provided file name to a safe base name.
+
+    Both separators are handled explicitly so a name such as
+    ``..\\..\\etc\\passwd.pdf`` or ``../../etc/passwd.pdf`` yields
+    ``passwd.pdf`` regardless of the operating system the app runs on.
+    """
+    candidate = filename.replace("\\", "/").rsplit("/", 1)[-1].strip()
+    if not candidate or candidate in {".", ".."}:
+        return "document.pdf"
+    return candidate
+
+
 def ingest_pdf(data: bytes, filename: str, *, max_size_bytes: int) -> ExtractedDocument:
     """Validate PDF bytes and extract text page by page.
 
@@ -114,7 +126,7 @@ def ingest_pdf(data: bytes, filename: str, *, max_size_bytes: int) -> ExtractedD
     pages = _extract_pages(reader)
     _ensure_text(pages)
 
-    name = Path(filename).name if filename else "document.pdf"
+    name = _sanitize_filename(filename)
     return ExtractedDocument(
         document_name=name,
         page_count=len(pages),
