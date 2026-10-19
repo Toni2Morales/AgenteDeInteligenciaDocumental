@@ -27,6 +27,35 @@ def test_document_name_is_sanitized():
     assert result.document_name == "passwd.pdf"
 
 
+def test_document_name_is_sanitized_for_posix_separators():
+    data = make_pdf(["content"])
+
+    result = pdf.ingest_pdf(data, "../../etc/passwd.pdf", max_size_bytes=100_000)
+
+    assert result.document_name == "passwd.pdf"
+
+
+def test_document_name_is_sanitized_for_absolute_windows_path():
+    data = make_pdf(["content"])
+
+    result = pdf.ingest_pdf(data, r"C:\Users\someone\report.pdf", max_size_bytes=100_000)
+
+    assert result.document_name == "report.pdf"
+
+
+def test_empty_document_name_falls_back_to_default():
+    data = make_pdf(["content"])
+
+    assert pdf.ingest_pdf(data, "", max_size_bytes=100_000).document_name == "document.pdf"
+    assert pdf.ingest_pdf(data, "   ", max_size_bytes=100_000).document_name == "document.pdf"
+
+
+def test_directory_only_document_name_falls_back_to_default():
+    data = make_pdf(["content"])
+
+    assert pdf.ingest_pdf(data, "../../", max_size_bytes=100_000).document_name == "document.pdf"
+
+
 def test_empty_file_raises():
     with pytest.raises(pdf.EmptyFileError):
         pdf.ingest_pdf(b"", "empty.pdf", max_size_bytes=100_000)

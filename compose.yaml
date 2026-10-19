@@ -1,0 +1,35 @@
+# Local PostgreSQL + pgvector for DocuMind AI.
+#
+# Start:  docker compose up -d
+# Stop:   docker compose stop
+# Remove (keeps data): docker compose down
+# Remove including data: docker compose down -v
+#
+# The database is bound to localhost only and its data lives in a named volume,
+# so nothing is stored inside the repository.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-documind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-documind}
+      POSTGRES_DB: ${POSTGRES_DB:-documind}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - documind_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-documind} -d ${POSTGRES_DB:-documind}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  documind_pgdata:
