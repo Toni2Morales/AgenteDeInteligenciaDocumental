@@ -1,0 +1,62 @@
+{
+  "document": "demo/document.pdf",
+  "description": "Conjunto de preguntas de evaluación para comprobar la recuperación de información y las citas sobre el documento de demostración.",
+  "questions": [
+    {
+      "id": "q1",
+      "question": "¿Qué porcentaje de la masa del Sistema Solar concentra el Sol?",
+      "expected_answer": "Aproximadamente el 99,86 % de la masa del Sistema Solar.",
+      "source_page": 1,
+      "source_section": "1. El Sol"
+    },
+    {
+      "id": "q2",
+      "question": "¿A qué distancia media se encuentra la Tierra del Sol?",
+      "expected_answer": "A unos 150 millones de kilómetros, distancia conocida como unidad astronómica (UA).",
+      "source_page": 1,
+      "source_section": "1. El Sol"
+    },
+    {
+      "id": "q3",
+      "question": "¿Cuál es el planeta más pequeño del Sistema Solar y el más cercano al Sol?",
+      "expected_answer": "Mercurio.",
+      "source_page": 2,
+      "source_section": "2. Los planetas interiores"
+    },
+    {
+      "id": "q4",
+      "question": "¿Por qué es Venus el planeta más caluroso?",
+      "expected_answer": "Por su intenso efecto invernadero, que atrapa el calor y eleva la temperatura hasta unos 465 °C.",
+      "source_page": 2,
+      "source_section": "2. Los planetas interiores"
+    },
+    {
+      "id": "q5",
+      "question": "¿Cuál es el planeta más grande del Sistema Solar?",
+      "expected_answer": "Júpiter, que además tiene la mayor masa.",
+      "source_page": 3,
+      "source_section": "3. Los planetas exteriores"
+    },
+    {
+      "id": "q6",
+      "question": "¿Qué particularidad tiene la rotación de Urano?",
+      "expected_answer": "Su eje está inclinado unos 98 grados, por lo que gira de lado respecto al plano de su órbita.",
+      "source_page": 3,
+      "source_section": "3. Los planetas exteriores"
+    },
+    {
+      "id": "q7",
+      "question": "¿Dónde se encuentra el cinturón de asteroides?",
+      "expected_answer": "Entre las órbitas de Marte y Júpiter.",
+      "source_page": 4,
+      "source_section": "4. Otros cuerpos y datos generales"
+    },
+    {
+      "id": "q8",
+      "question": "¿Cuál es la edad aproximada del Sistema Solar?",
+      "expected_answer": "Unos 4.600 millones de años.",
+      "source_page": 4,
+      "source_section": "4. Otros cuerpos y datos generales"
+    }
+  ]
+}
