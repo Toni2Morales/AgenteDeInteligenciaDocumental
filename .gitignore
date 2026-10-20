@@ -67,6 +67,9 @@ desktop.ini
 # Logs
 *.log
 
+# Evaluation artifacts
+/results/
+
 # Markdown - ignore all except README and agent instructions
 *.md
 !README.md
