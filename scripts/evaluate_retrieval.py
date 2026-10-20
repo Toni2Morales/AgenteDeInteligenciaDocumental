@@ -6,6 +6,7 @@ against the demo document. Can run in two modes:
 - Unit/offline: only validates the evaluation file structure (no services).
 - Integration: indexes the demo PDF with real Ollama+Postgres and measures retrieval.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -108,7 +109,6 @@ def main() -> int:
         return 0
 
     from app.config.settings import settings
-    from app.db import repositories
     from app.db.connection import connect
     from app.services.embeddings import EmbeddingService
     from app.services.indexing import IndexingConfig, index_pdf
