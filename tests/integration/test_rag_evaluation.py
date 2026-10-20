@@ -183,8 +183,7 @@ def test_unanswerable_question_abstains(indexed_document, embeddings, ollama):
     else:
         lowered = answer.answer.lower()
         assert any(
-            marker in lowered
-            for marker in ("no ", "sin ", "no puedo", "no se", "no hay")
+            marker in lowered for marker in ("no ", "sin ", "no puedo", "no se", "no hay")
         ), f"expected an abstention, got: {answer.answer!r}"
 
 

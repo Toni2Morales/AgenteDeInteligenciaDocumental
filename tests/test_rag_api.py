@@ -122,11 +122,15 @@ def test_index_returns_indexed_document(monkeypatch):
     record = FakeRecord(page_count=3)
 
     monkeypatch.setattr(rag_api, "connect", lambda: FakeConnection())
-    monkeypatch.setattr(rag_api, "index_pdf", lambda *a, **k: type(
-        "Result",
-        (),
-        {"document_id": record.id, "chunk_count": 4, "already_indexed": False},
-    )())
+    monkeypatch.setattr(
+        rag_api,
+        "index_pdf",
+        lambda *a, **k: type(
+            "Result",
+            (),
+            {"document_id": record.id, "chunk_count": 4, "already_indexed": False},
+        )(),
+    )
     monkeypatch.setattr(rag_api.repositories, "get_document", lambda conn, doc_id: record)
     monkeypatch.setattr(rag_api.repositories, "count_chunks", lambda conn, **kw: 4)
 
