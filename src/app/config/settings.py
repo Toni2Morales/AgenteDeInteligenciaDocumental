@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +28,15 @@ class Settings(BaseSettings):
     # the embedding model is verified with `python scripts/verify_ollama.py`.
     embedding_dimension: int | None = None
     embedding_version: str = "1"
+
+    @field_validator("embedding_dimension", mode="before")
+    @classmethod
+    def _empty_embedding_dimension_to_none(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
 
     # Retrieval-augmented generation (RAG)
     chunk_size_chars: int = 900
