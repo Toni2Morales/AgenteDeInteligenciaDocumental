@@ -28,6 +28,37 @@ class Settings(BaseSettings):
     embedding_dimension: int | None = None
     embedding_version: str = "1"
 
+    # Retrieval-augmented generation (RAG)
+    chunk_size_chars: int = 900
+    chunk_overlap_chars: int = 150
+    embedding_batch_size: int = 8
+    retrieval_top_k: int = 5
+    # Minimum cosine similarity for a retrieved chunk to be considered evidence.
+    # This is an initial heuristic, not a guarantee of correctness: it must be
+    # calibrated with the evaluation set in demo/evaluation.json.
+    retrieval_min_score: float = 0.35
+    # Maximum number of characters of retrieved context sent to the LLM.
+    max_context_chars: int = 6000
+    max_question_chars: int = 1000
+
+    def validate_for_rag(self) -> None:
+        """Raise ``ValueError`` when the configuration cannot run the RAG flow."""
+        if self.embedding_dimension is None:
+            raise ValueError(
+                "EMBEDDING_DIMENSION is not set. Verify it with "
+                "`python scripts/verify_ollama.py` and set it before indexing."
+            )
+        if self.chunk_size_chars <= 0:
+            raise ValueError("CHUNK_SIZE_CHARS must be a positive integer.")
+        if self.chunk_overlap_chars < 0 or self.chunk_overlap_chars >= self.chunk_size_chars:
+            raise ValueError("CHUNK_OVERLAP_CHARS must be >= 0 and smaller than CHUNK_SIZE_CHARS.")
+        if self.embedding_batch_size <= 0:
+            raise ValueError("EMBEDDING_BATCH_SIZE must be a positive integer.")
+        if self.retrieval_top_k <= 0:
+            raise ValueError("RETRIEVAL_TOP_K must be a positive integer.")
+        if not 0.0 <= self.retrieval_min_score <= 1.0:
+            raise ValueError("RETRIEVAL_MIN_SCORE must be between 0.0 and 1.0.")
+
     @property
     def max_upload_size_bytes(self) -> int:
         return self.max_upload_size_mb * 1024 * 1024
