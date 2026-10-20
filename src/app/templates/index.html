@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,43 +9,51 @@
 <body>
     <header>
         <h1>{{ app_name }}</h1>
-        <p class="subtitle">Document Intelligence Assistant</p>
+        <p class="subtitle">Inteligencia documental local: indexa un PDF y pregunta sobre su contenido</p>
     </header>
 
     <main>
+        <section class="status-section">
+            <h2>Estado de los servicios locales</h2>
+            <ul id="services-status" class="status-list">
+                <li class="status-item">Comprobando servicios...</li>
+            </ul>
+        </section>
+
         <section class="upload-section">
-            <h2>Upload PDF</h2>
+            <h2>1. Indexar un PDF</h2>
             <div class="upload-area">
-                <input type="file" id="pdf-upload" accept=".pdf" disabled>
+                <input type="file" id="pdf-upload" accept="application/pdf">
                 <label for="pdf-upload" class="upload-label">
                     <span class="upload-icon">📄</span>
-                    <span>Select a PDF file</span>
+                    <span id="upload-label-text">Seleccionar un archivo PDF</span>
                 </label>
-                <p class="pending-note">La extracción de texto de PDF ya está disponible en la API. La subida desde esta página sigue pendiente.</p>
+                <button id="index-button" type="button">Indexar documento</button>
+                <p id="upload-status" class="status-message" role="status" aria-live="polite"></p>
             </div>
+        </section>
+
+        <section class="documents-section">
+            <h2>2. Documentos indexados</h2>
+            <ul id="documents-list" class="documents-list">
+                <li class="empty-state">Todavía no hay documentos indexados.</li>
+            </ul>
         </section>
 
         <section class="qa-section">
-            <h2>Ask a question</h2>
+            <h2>3. Preguntar</h2>
             <div class="question-area">
-                <textarea id="question-input" placeholder="Ask a question about the document..." rows="4" disabled></textarea>
-                <button id="ask-button" disabled>Ask</button>
-                <p class="pending-note">Question submission: pending implementation</p>
+                <label for="question-input">Pregunta sobre el documento seleccionado</label>
+                <textarea id="question-input" placeholder="Escribe una pregunta sobre el contenido del documento..." rows="4"></textarea>
+                <button id="ask-button" type="button">Preguntar</button>
             </div>
 
             <div class="answer-area">
-                <h3>Answers</h3>
+                <h3>Respuesta</h3>
                 <div id="answers-container" class="answers-container">
-                    <p class="empty-state">No answers yet. Upload a PDF and ask a question.</p>
+                    <p class="empty-state">Selecciona un documento, escribe una pregunta y pulsa «Preguntar».</p>
                 </div>
-                <p class="pending-note">Answer generation: pending implementation (no AI responses will be simulated)</p>
             </div>
-        </section>
-
-        <section class="sample-section">
-            <h2>Try it out</h2>
-            <button id="sample-button" disabled>Try with sample document</button>
-            <p class="pending-note">Sample document loading: pending implementation</p>
         </section>
     </main>
 

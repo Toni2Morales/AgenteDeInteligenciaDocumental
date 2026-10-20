@@ -2,8 +2,10 @@
 
 DocuMind AI es una aplicación web pública para consultar documentos PDF mediante un agente de IA.
 Este repositorio contiene el backend y el frontend en una única aplicación desplegable. Incluye la
-**ingesta y extracción de texto de PDFs** y la **infraestructura local de IA**: persistencia en
-PostgreSQL con pgvector y generación de embeddings con Ollama.
+**ingesta y extracción de texto de PDFs**, la **infraestructura local de IA** (persistencia en
+PostgreSQL con pgvector y generación de embeddings con Ollama) y el **pipeline RAG completo**:
+indexar un PDF, hacer preguntas sobre su contenido y obtener respuestas en español con citas a las
+páginas originales.
 
 ## Requisitos
 
@@ -78,6 +80,13 @@ uvicorn src.app.main:app --host 127.0.0.1 --port 8000 --reload
 | `OLLAMA_TIMEOUT_SECONDS` | Timeout de las llamadas a Ollama, en segundos | `120` |
 | `EMBEDDING_DIMENSION` | Dimensión real de los embeddings. **Debe verificarse** antes de migrar | (vacío) |
 | `EMBEDDING_VERSION` | Etiqueta de versión guardada junto a cada embedding | `1` |
+| `CHUNK_SIZE_CHARS` | Tamaño máximo de cada fragmento, en caracteres | `900` |
+| `CHUNK_OVERLAP_CHARS` | Solape entre fragmentos consecutivos, en caracteres | `150` |
+| `EMBEDDING_BATCH_SIZE` | Número de fragmentos por lote al generar embeddings | `8` |
+| `RETRIEVAL_TOP_K` | Número máximo de fragmentos recuperados por pregunta | `5` |
+| `RETRIEVAL_MIN_SCORE` | Umbral mínimo de similitud (coseno) para considerar un fragmento como evidencia | `0.35` |
+| `MAX_CONTEXT_CHARS` | Máximo de caracteres de contexto enviados al modelo | `6000` |
+| `MAX_QUESTION_CHARS` | Longitud máxima de una pregunta | `1000` |
 
 > `POSTGRES_PASSWORD=documind` es un valor de desarrollo local, no una credencial real.
 > Nunca subas tu archivo `.env` al repositorio.
@@ -187,6 +196,186 @@ curl.exe http://localhost:11434/api/tags
 ```
 
 
+## Pipeline RAG: indexar, preguntar y citar
+
+Este flujo permite cargar un PDF, indexar su contenido, hacer preguntas y obtener respuestas
+**fundamentadas en el propio documento**, con citas a la página de origen. Todo se ejecuta en local
+con Ollama y PostgreSQL + pgvector; **no se envían documentos a Internet**.
+
+### Cómo funciona
+
+```
+PDF ──▶ extracción de texto (pypdf, por página)
+     ──▶ fragmentación (chunks con solape, conservando página y posición)
+     ──▶ embeddings por lotes pequeños (Ollama: embeddinggemma)
+     ──▶ almacenamiento en PostgreSQL + pgvector (transacción única)
+                                    │
+pregunta ──▶ embedding ──▶ búsqueda por similitud (filtrando modelo y dimensión)
+     ──▶ umbral de relevancia ──▶ prompt en español ──▶ qwen2.5:3b
+     ──▶ respuesta + citas verificables, o abstención explícita
+```
+
+Puntos clave del diseño:
+
+- **Reindexado idempotente.** Un documento se identifica por el `sha256` de su contenido. Si ya
+  estaba indexado, se reemplazan sus fragmentos del mismo modelo de embeddings en lugar de
+  duplicarlos. `replace_chunks` borra e inserta dentro de una sola transacción.
+- **Sin vectores incompatibles.** Cada fragmento guarda `embedding_model`, `embedding_dim` y
+  `embedding_version`; toda búsqueda filtra por modelo y dimensión, de modo que nunca se comparan
+  vectores de modelos distintos.
+- **Filtrado por documento.** La recuperación puede restringirse a uno o varios documentos
+  (`document_ids`), así no se devuelven fragmentos fuera del contexto solicitado.
+- **Citas trazables.** Las citas se reconstruyen **a partir de los fragmentos recuperados**, nunca a
+  partir del texto que genera el modelo. El modelo no puede inventar páginas ni documentos.
+- **Abstención conservadora.** Si no hay fragmentos recuperados no se genera ninguna respuesta
+  factual; si ningún fragmento supera el umbral de relevancia, o si el modelo no puede responder con
+  la evidencia disponible, el sistema lo dice explícitamente en lugar de especular.
+- **Privacidad.** Los PDF originales **no se persisten**: se procesan en memoria. Solo se guardan
+  metadatos del documento y el texto de los fragmentos. Por defecto no se registra el contenido de
+  los documentos ni las preguntas.
+
+> **El umbral `RETRIEVAL_MIN_SCORE` (0,35 por defecto) es una heurística inicial, no una garantía de
+> veracidad.** Debe calibrarse con el conjunto de evaluación de `demo/evaluation.json`. Una respuesta
+> marcada como `grounded=true` significa que se apoyó en evidencia recuperada, no que sea correcta.
+
+### Puesta en marcha
+
+Con PostgreSQL y Ollama ya en marcha y el esquema migrado (secciones anteriores):
+
+```powershell
+python scripts/verify_ollama.py   # confirma los modelos y copia EMBEDDING_DIMENSION al .env
+python scripts/migrate.py         # crea el esquema (si no lo hiciste antes)
+uvicorn src.app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Abre http://127.0.0.1:8000/ y usa la interfaz en tres pasos: **indexar**, **seleccionar el
+documento** y **preguntar**. La página muestra el estado de los servicios locales y las citas por
+página de cada respuesta.
+
+### Endpoints de RAG
+
+#### `POST /api/documents/index`
+
+Indexa un PDF: valida, extrae, fragmenta, genera embeddings y guarda todo de una vez.
+
+- **Petición:** `multipart/form-data` con el campo `file` (el PDF).
+- **Respuesta (`200`):**
+
+```json
+{
+  "document": {
+    "id": "0b0e6a1e-...-...",
+    "name": "informe.pdf",
+    "page_count": 4,
+    "created_at": "2026-10-20T12:00:00Z",
+    "chunk_count": 12
+  },
+  "chunk_count": 12,
+  "already_indexed": false
+}
+```
+
+`already_indexed` es `true` cuando el mismo contenido ya estaba indexado y se reemplazó.
+
+#### `GET /api/documents`
+
+Lista los documentos indexados con su número de páginas y de fragmentos.
+
+#### `POST /api/documents/ask`
+
+Responde a una pregunta usando solo la evidencia recuperada.
+
+- **Petición:**
+
+```json
+{
+  "question": "¿Qué planeta es el más grande del Sistema Solar?",
+  "document_ids": ["0b0e6a1e-...-..."],
+  "top_k": 5
+}
+```
+
+`document_ids` y `top_k` son opcionales; si se omiten, se busca en todos los documentos con el `top_k`
+configurado.
+
+- **Respuesta (`200`), respuesta fundamentada:**
+
+```json
+{
+  "answer": "Júpiter es el planeta más grande del Sistema Solar [1].",
+  "citations": [
+    {
+      "document_id": "0b0e6a1e-...-...",
+      "page_number": 3,
+      "chunk_uid": "p3-c1",
+      "excerpt": "Júpiter es el planeta más grande...",
+      "score": 0.83
+    }
+  ],
+  "grounded": true,
+  "abstained": false,
+  "reason": null
+}
+```
+
+- **Respuesta (`200`), abstención:**
+
+```json
+{
+  "answer": "No he encontrado evidencia suficiente en los documentos indexados para responder a esa pregunta.",
+  "citations": [],
+  "grounded": false,
+  "abstained": true,
+  "reason": "no_evidence"
+}
+```
+
+#### `GET /api/services/status`
+
+Indica si Ollama, sus modelos y la base de datos están disponibles, y si `EMBEDDING_DIMENSION`
+está configurada. Útil para diagnosticar antes de indexar o preguntar.
+
+### Códigos de error de RAG
+
+| Situación | Código HTTP |
+| --- | --- |
+| PDF inválido, vacío, corrupto o sin texto extraíble | `400` / `422` (los mismos que la ingesta) |
+| El PDF supera `MAX_UPLOAD_SIZE_MB` | `413 Content Too Large` |
+| `EMBEDDING_DIMENSION` no configurada, o servicio no disponible | `503 Service Unavailable` |
+| Ollama no responde o no puede generar embeddings/respuesta | `503 Service Unavailable` |
+| Pregunta vacía | `400 Bad Request` |
+| Pregunta demasiado larga | `413 Content Too Large` |
+| Documento indicado no encontrado | `404 Not Found` |
+| No hay documentos indexados sobre los que preguntar | `409 Conflict` |
+
+### Ejemplos con `curl`
+
+```powershell
+# Indexar el documento de demostración
+curl.exe -X POST "http://127.0.0.1:8000/api/documents/index" -F "file=@demo\document.pdf"
+
+# Listar documentos indexados
+curl.exe "http://127.0.0.1:8000/api/documents"
+
+# Preguntar (sin document_ids, busca en todos)
+curl.exe -X POST "http://127.0.0.1:8000/api/documents/ask" `
+  -H "Content-Type: application/json" `
+  -d "{\"question\": \"¿Cuál es la edad aproximada del Sistema Solar?\"}"
+
+# Estado de los servicios locales
+curl.exe "http://127.0.0.1:8000/api/services/status"
+```
+
+### Rendimiento
+
+- Los embeddings se generan **por lotes pequeños** (`EMBEDDING_BATCH_SIZE`, 8 por defecto) para
+  limitar el uso de memoria.
+- El contexto enviado al modelo está acotado por `MAX_CONTEXT_CHARS` y el número de fragmentos por
+  `RETRIEVAL_TOP_K`.
+- Para 16 GB de RAM y gráficos integrados, `qwen2.5:3b` y `embeddinggemma` caben con holgura, pero la
+  generación será lenta en CPU. Evita mantener ambos modelos cargados a la vez si la memoria es justa
+  (Ollama los descarga por inactividad con `OLLAMA_KEEP_ALIVE`).
+
 ## Ingesta de PDF: API
 
 La aplicación expone un endpoint que recibe un archivo PDF, valida el archivo y extrae su texto
@@ -231,8 +420,8 @@ También puedes probarlo desde la documentación interactiva en http://127.0.0.1
 
 ## Demostración y evaluación
 
-El directorio [`demo/`](demo/) contiene un documento de ejemplo reproducible y un conjunto de
-preguntas de evaluación para comprobar más adelante la recuperación de información y las citas:
+El directorio [`demo/`](demo/) contiene un documento de ejemplo reproducible y el conjunto de
+preguntas de evaluación que usa el pipeline RAG:
 
 - `demo/document.txt` — fuente de texto del documento (contenido original y propio sobre el Sistema
   Solar, con datos públicos y estables).
@@ -246,10 +435,23 @@ Regenerar el PDF a partir de la fuente:
 python scripts/generate_demo_pdf.py
 ```
 
-Subir el documento de demostración al endpoint de ingesta:
+Subir el documento de demostración al endpoint de ingesta (solo extrae el texto):
 
 ```powershell
 curl.exe -X POST "http://127.0.0.1:8000/api/documents/upload" -F "file=@demo\document.pdf"
+```
+
+Indexarlo para poder preguntar sobre él:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/documents/index" -F "file=@demo\document.pdf"
+```
+
+Evaluación automática del pipeline sobre este documento (páginas correctas y abstención):
+
+```powershell
+$env:RUN_DB_TESTS = "1"; $env:RUN_OLLAMA_TESTS = "1"
+pytest tests/integration/test_rag_evaluation.py -q
 ```
 
 ## Desarrollo
@@ -274,6 +476,18 @@ modelos descargados):
 $env:RUN_OLLAMA_TESTS = "1"; pytest tests/integration -q
 ```
 
+Ejecutar **todo** el pipeline de extremo a extremo sobre el documento de demostración (requiere
+PostgreSQL **y** Ollama con los modelos descargados). Comprueba que las preguntas conocidas
+recuperan la página esperada y que una pregunta sin respuesta produce una abstención:
+
+```powershell
+$env:RUN_DB_TESTS = "1"; $env:RUN_OLLAMA_TESTS = "1"
+pytest tests/integration/test_rag_evaluation.py -q
+```
+
+Las pruebas unitarias de `chunking`, `indexing`, `retrieval`, `rag` y los endpoints de RAG se
+ejecutan **sin descargar modelos ni necesitar servicios**: usan dobles de prueba deterministas.
+
 Comprobar el formato y el linter:
 
 ```powershell
@@ -293,12 +507,12 @@ La aplicación lee el puerto desde la variable de entorno `PORT` (a través de l
 
 ## Arquitectura
 
-- `src/app/api/` — routers de FastAPI (`health`, `documents`).
-- `src/app/services/` — lógica de negocio independiente del HTTP: `pdf_ingestion`, `ollama` y
-  `embeddings`.
+- `src/app/api/` — routers de FastAPI (`health`, `documents`, `rag`).
+- `src/app/services/` — lógica de negocio independiente del HTTP: `pdf_ingestion`, `ollama`,
+  `embeddings`, `chunking`, `indexing`, `retrieval` y `rag`.
 - `src/app/db/` — acceso a datos: `connection`, `migrations` (runner versionado) y `repositories`
   (documentos, fragmentos y búsqueda por similitud).
-- `src/app/schemas/` — modelos Pydantic del API y dataclasses internas (`chunk`).
+- `src/app/schemas/` — modelos Pydantic del API (`document`, `rag`) y dataclasses internas (`chunk`).
 - `src/app/config/` — configuración de la aplicación (`settings`).
 - `src/app/templates/` y `src/app/static/` — interfaz web (HTML, CSS y JavaScript).
 - `migrations/` — migraciones SQL versionadas.
@@ -332,13 +546,22 @@ La aplicación lee el puerto desde la variable de entorno `PORT` (a través de l
 
 ## Notas y limitaciones
 
-- Está implementada la **ingesta y extracción de texto de PDFs**, además de la **base de
-  persistencia y los servicios de embeddings**. La interfaz muestra las áreas de subida,
-  pregunta/respuesta y documento de ejemplo como funciones **pendientes**.
-- El documento y las preguntas de `demo/` sirven para **preparar y evaluar** el futuro sistema RAG;
-  todavía no hay generación de respuestas.
-- Todavía **no** hay cadena de preguntas y respuestas, ni LangGraph que la orqueste.
+- Está implementado el **pipeline RAG completo**: ingesta y extracción de PDFs, fragmentación,
+  generación de embeddings, búsqueda por similitud, generación de respuestas en español con citas por
+  página y abstención cuando no hay evidencia suficiente.
+- **No hay LangGraph** todavía: el flujo es una secuencia de servicios explícita y testeable. Se
+  podría añadir un grafo si la orquestación se complica.
+- El **umbral `RETRIEVAL_MIN_SCORE` es una heurística**, no una garantía de veracidad. Está pensado
+  para calibrarse con `demo/evaluation.json`; los resultados reales de esa evaluación se describen en
+  la prueba `tests/integration/test_rag_evaluation.py`.
+- La **calidad de las respuestas depende del modelo local** (`qwen2.5:3b`, pequeño y apto para CPU);
+  puede ser más débil que modelos grandes. Las citas siempre proceden de los fragmentos recuperados,
+  pero conviene **verificarlas**.
 - Los PDFs subidos **no se persisten**: se procesan en memoria y se descartan. La base de datos
   guarda solo metadatos del documento y el texto de sus fragmentos.
-- `OllamaClient.generate()` existe como preparación, pero **no está conectado a ningún endpoint**.
-- Ningún contenido del documento se ejecuta: el texto se extrae con `pypdf` y no se interpreta.
+- Todavía **no** hay autenticación ni cuotas: la aplicación está pensada para uso local o de
+  demostración.
+- Las pruebas unitarias no requieren servicios; las de integración y la evaluación completa requieren
+  PostgreSQL + pgvector y Ollama con los modelos descargados.
+- Ningún contenido del documento se ejecuta: el texto se extrae con `pypdf` y se trata como contenido
+  no confiable, nunca como instrucciones para el modelo.

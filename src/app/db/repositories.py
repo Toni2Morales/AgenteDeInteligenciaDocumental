@@ -34,6 +34,12 @@ FROM documents
 WHERE id = %s
 """
 
+_SELECT_DOCUMENT_BY_SHA256 = """
+SELECT id, name, sha256, page_count, created_at
+FROM documents
+WHERE sha256 = %s
+"""
+
 _DELETE_CHUNKS = """
 DELETE FROM chunks
 WHERE document_id = %s AND embedding_model = %s
@@ -54,6 +60,21 @@ FROM chunks
 WHERE embedding_model = %s AND embedding_dim = %s
 ORDER BY embedding <=> %s
 LIMIT %s
+"""
+
+_SIMILARITY_SEARCH_IN_DOCUMENTS = """
+SELECT document_id, chunk_uid, text, page_number, position, metadata,
+       1 - (embedding <=> %s) AS score
+FROM chunks
+WHERE embedding_model = %s AND embedding_dim = %s AND document_id = ANY(%s)
+ORDER BY embedding <=> %s
+LIMIT %s
+"""
+
+_SELECT_DOCUMENTS = """
+SELECT id, name, sha256, page_count, created_at
+FROM documents
+ORDER BY created_at DESC, name
 """
 
 _COUNT_CHUNKS = """
@@ -84,6 +105,23 @@ def get_document(conn, document_id: UUID) -> DocumentRecord | None:
         page_count=row[3],
         created_at=row[4],
     )
+
+
+def list_documents(conn) -> list[DocumentRecord]:
+    """Return every indexed document, most recent first."""
+    with conn.cursor() as cur:
+        cur.execute(_SELECT_DOCUMENTS)
+        rows = cur.fetchall()
+    return [
+        DocumentRecord(
+            id=row[0],
+            name=row[1],
+            sha256=row[2],
+            page_count=row[3],
+            created_at=row[4],
+        )
+        for row in rows
+    ]
 
 
 def replace_chunks(
@@ -140,14 +178,33 @@ def similarity_search(
     embedding_model: str,
     embedding_dim: int,
     limit: int = 5,
+    document_ids: Sequence[UUID] | None = None,
 ) -> list[RetrievedChunk]:
-    """Return the closest chunks for one embedding model, with citation data."""
+    """Return the closest chunks for one embedding model, with citation data.
+
+    When ``document_ids`` is provided the search is restricted to those
+    documents, so chunks from documents outside the requested context are never
+    returned. All values are passed as bound parameters, never interpolated.
+    """
     vector = Vector(query_embedding)
     with conn.cursor() as cur:
-        cur.execute(
-            _SIMILARITY_SEARCH,
-            (vector, embedding_model, embedding_dim, vector, limit),
-        )
+        if document_ids:
+            cur.execute(
+                _SIMILARITY_SEARCH_IN_DOCUMENTS,
+                (
+                    vector,
+                    embedding_model,
+                    embedding_dim,
+                    list(document_ids),
+                    vector,
+                    limit,
+                ),
+            )
+        else:
+            cur.execute(
+                _SIMILARITY_SEARCH,
+                (vector, embedding_model, embedding_dim, vector, limit),
+            )
         rows = cur.fetchall()
     return [
         RetrievedChunk(
@@ -163,9 +220,27 @@ def similarity_search(
     ]
 
 
+def find_document_by_sha256(conn, sha256: str) -> DocumentRecord | None:
+    """Return an already indexed document with the same content checksum."""
+    with conn.cursor() as cur:
+        cur.execute(_SELECT_DOCUMENT_BY_SHA256, (sha256,))
+        row = cur.fetchone()
+    if row is None:
+        return None
+    return DocumentRecord(
+        id=row[0],
+        name=row[1],
+        sha256=row[2],
+        page_count=row[3],
+        created_at=row[4],
+    )
+
+
 __all__: list[str] = [
     "count_chunks",
+    "find_document_by_sha256",
     "get_document",
+    "list_documents",
     "replace_chunks",
     "similarity_search",
     "upsert_document",
